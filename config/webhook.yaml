@@ -56,13 +56,14 @@ spec:
           value: webhook
 
         securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
+          seccompProfile:
+            type: RuntimeDefault
           runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          runAsUser: 65532
           capabilities:
             drop:
-            - all
-
+              - ALL
         readinessProbe: &probe
           periodSeconds: 1
           httpGet:

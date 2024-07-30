@@ -55,11 +55,12 @@ spec:
           value: config-observability-tekton-pruner
         - name: METRICS_DOMAIN
           value: pruner.tekton.dev
-
         securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
+          seccompProfile:
+            type: RuntimeDefault
           runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          runAsUser: 65532
           capabilities:
             drop:
-            - all
+              - ALL
