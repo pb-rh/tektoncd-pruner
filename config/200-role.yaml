@@ -9,7 +9,7 @@ metadata:
 rules:
   # Needed to watch and load configuration and secret data.
   - apiGroups: [""]
-    resources: 
+    resources:
       - "configmaps"
       - "secrets"
     verbs: ["get", "list", "update", "watch"]

@@ -11,7 +11,7 @@ rules:
       - "pruner.tekton.dev"
     resources:
       - "tektonpruners"
-    verbs: 
+    verbs:
       - "get"
       - "list"
       - "create"
@@ -21,14 +21,14 @@ rules:
       - "watch"
 
   # allows to manage taskruns and pipelineruns
-  - apiGroups: 
+  - apiGroups:
       - "tekton.dev"
-    resources: 
+    resources:
       - "taskruns"
       - "pipelineruns"
       - "taskruns/finalizers"
       - "pipelineruns/finalizers"
-    verbs: 
+    verbs:
       - "get"
       - "list"
       - "create"
@@ -39,36 +39,36 @@ rules:
 
   # used in webhook
   - apiGroups:
-    - admissionregistration.k8s.io
+      - admissionregistration.k8s.io
     resources:
-    - mutatingwebhookconfigurations
-    - validatingwebhookconfigurations
+      - mutatingwebhookconfigurations
+      - validatingwebhookconfigurations
     verbs:
-    - get
-    - list
-    - create
-    - update
-    - delete
-    - patch
-    - watch
+      - get
+      - list
+      - create
+      - update
+      - delete
+      - patch
+      - watch
 
   # used in webhook
   - apiGroups:
-    - ""
+      - ""
     resources:
-    - namespaces
+      - namespaces
     verbs:
-    - get
-    - list
-    - create
-    - update
-    - delete
-    - patch
-    - watch
+      - get
+      - list
+      - create
+      - update
+      - delete
+      - patch
+      - watch
 
   - apiGroups:
-    - ""
+      - ""
     resources:
-    - namespaces/finalizers
+      - namespaces/finalizers
     verbs:
-    - update
+      - update
