@@ -36,7 +36,7 @@ jobs:
         run: ./hack/build.sh
         env:
           KO_PUSH: "true"
-          KO_DOCKER_REPO: "ghcr.io/${{ github.actor }}/tektoncd-pruner"
+          KO_DOCKER_REPO: "ghcr.io/${{ github.repository }}"
 
       - name: generate a build timestamp and sha256sum files
         run: |

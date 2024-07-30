@@ -12,8 +12,7 @@ mkdir ${BUILDS_DIR} -p
 rm ${BUILDS_DIR}/* -rf
 
 # supported platforms
-# export PLATFORMS="linux/amd64,linux/s390x,linux/ppc64le,linux/arm64"
-export PLATFORMS="linux/amd64"
+export PLATFORMS="linux/amd64,linux/s390x,linux/ppc64le,linux/arm64"
 
 # build and resolve the image details on manifests
 ko resolve \
