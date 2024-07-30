@@ -1,3 +1,4 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,7 +17,7 @@ spec:
       labels:
         app: webhook
         role: webhook
-        samples.knative.dev/release: devel
+        pruner.tekton.dev/release: "devel"
     spec:
       # To avoid node becoming SPOF, spread our replicas to different nodes.
       affinity:
@@ -50,7 +51,7 @@ spec:
         - name: CONFIG_LOGGING_NAME
           value: config-logging-tekton-pruner
         - name: METRICS_DOMAIN
-          value: knative.dev/samples
+          value: pruner.tekton.dev
         - name: WEBHOOK_NAME
           value: webhook
 

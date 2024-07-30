@@ -5,10 +5,12 @@ import (
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 
 	tektonprunerinformer "github.com/openshift-pipelines/tektoncd-pruner/pkg/client/injection/informers/tektonpruner/v1alpha1/tektonpruner"
 	tektonprunerreconciler "github.com/openshift-pipelines/tektoncd-pruner/pkg/client/injection/reconciler/tektonpruner/v1alpha1/tektonpruner"
 	"github.com/openshift-pipelines/tektoncd-pruner/pkg/reconciler/helper"
+	"github.com/openshift-pipelines/tektoncd-pruner/pkg/version"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 )
 
@@ -18,6 +20,14 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	// the injection framework automatically. They'll keep a cached representation of the
 	// cluster's state of the respective resource at all times.
 	tektonPrunerInformer := tektonprunerinformer.Get(ctx)
+
+	logger := logging.FromContext(ctx)
+	ver := version.Get()
+	// print version details
+	logger.Infow("pruner version details",
+		"version", ver.Version, "arch", ver.Arch, "platform", ver.Platform,
+		"goVersion", ver.GoLang, "buildDate", ver.BuildDate, "gitCommit", ver.GitCommit,
+	)
 
 	r := &Reconciler{
 		// The client will be needed to create/delete Pods via the API.

@@ -1,3 +1,4 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -14,7 +15,7 @@ spec:
     metadata:
       labels:
         app: controller
-        samples.knative.dev/release: devel
+        pruner.tekton.dev/release: "devel"
     spec:
       # To avoid node becoming SPOF, spread our replicas to different nodes.
       affinity:
@@ -53,7 +54,7 @@ spec:
         - name: CONFIG_OBSERVABILITY_NAME
           value: config-observability-tekton-pruner
         - name: METRICS_DOMAIN
-          value: knative.dev/samples
+          value: pruner.tekton.dev
 
         securityContext:
           allowPrivilegeEscalation: false
