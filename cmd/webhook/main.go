@@ -128,7 +128,7 @@ func main() {
 		Port:        webhook.PortFromEnv(8443),
 	})
 
-	sharedmain.WebhookMainWithContext(ctx, serviceName,
+	sharedmain.MainWithContext(ctx, serviceName,
 		certificates.NewController,
 		newDefaultingAdmissionController(webhookName),
 		newValidationAdmissionController(webhookName),

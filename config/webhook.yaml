@@ -54,7 +54,8 @@ spec:
               value: pruner.tekton.dev
             - name: WEBHOOK_NAME
               value: webhook
-
+            - name: CONFIG_LEADERELECTION_NAME
+              value: config-leader-election-tekton-pruner-webhook
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

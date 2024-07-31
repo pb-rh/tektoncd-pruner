@@ -55,6 +55,8 @@ spec:
               value: config-observability-tekton-pruner
             - name: METRICS_DOMAIN
               value: pruner.tekton.dev
+            - name: CONFIG_LEADERELECTION_NAME
+              value: config-leader-election-tekton-pruner-controller
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
