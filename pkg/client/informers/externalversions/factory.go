@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2024 The Tekton Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -253,9 +253,9 @@ type SharedInformerFactory interface {
 	// client.
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) cache.SharedIndexInformer
 
-	Openshiftpipelines() tektonpruner.Interface
+	Pruner() tektonpruner.Interface
 }
 
-func (f *sharedInformerFactory) Openshiftpipelines() tektonpruner.Interface {
+func (f *sharedInformerFactory) Pruner() tektonpruner.Interface {
 	return tektonpruner.New(f, f.namespace, f.tweakListOptions)
 }

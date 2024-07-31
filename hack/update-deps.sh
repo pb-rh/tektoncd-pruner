@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2019 The Knative Authors
+# Copyright 2019 The Tekton Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,45 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-source $(dirname "$0")/../vendor/knative.dev/hack/library.sh
+source $(git rev-parse --show-toplevel)/vendor/github.com/tektoncd/plumbing/scripts/library.sh
 
-go_update_deps "$@"
+cd ${REPO_ROOT_DIR}
+
+VERSION="release-0.26"
+
+# The list of dependencies that we track at HEAD and periodically
+# float forward in this repository.
+FLOATING_DEPS=(
+  "knative.dev/pkg@${VERSION}"
+)
+
+# Parse flags to determine any we should pass to dep.
+GO_GET=0
+while [[ $# -ne 0 ]]; do
+  parameter=$1
+  case ${parameter} in
+    --upgrade) GO_GET=1 ;;
+    *) abort "unknown option ${parameter}" ;;
+  esac
+  shift
+done
+readonly GO_GET
+
+if (( GO_GET )); then
+  go get -d ${FLOATING_DEPS[@]}
+fi
+
+echo "go mod tidy and vendor"
+# Prune modules.
+go mod tidy
+go mod vendor
+
+echo "apply patches"
+# Applying patches
+if [[ -d hack/patches ]];then
+    for f in hack/patches/*.patch;do
+        [[ -f ${f} ]] || continue
+        # Apply patches but do not commit
+        git apply ${f}
+    done
+fi

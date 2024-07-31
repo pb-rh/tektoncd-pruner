@@ -37,7 +37,7 @@ type Key struct{}
 
 func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 	f := factory.Get(ctx)
-	inf := f.Openshiftpipelines().V1alpha1().TektonPruners()
+	inf := f.Pruner().V1alpha1().TektonPruners()
 	return context.WithValue(ctx, Key{}, inf), inf.Informer()
 }
 

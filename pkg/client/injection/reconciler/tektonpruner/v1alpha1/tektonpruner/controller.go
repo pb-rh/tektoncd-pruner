@@ -44,7 +44,7 @@ import (
 
 const (
 	defaultControllerAgentName = "tektonpruner-controller"
-	defaultFinalizerName       = "tektonpruners.openshiftpipelines.org"
+	defaultFinalizerName       = "tektonpruners.pruner.tekton.dev"
 )
 
 // NewImpl returns a controller.Impl that handles queuing and feeding work from
@@ -103,7 +103,7 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 
 	logger = logger.With(
 		zap.String(logkey.ControllerType, ctrTypeName),
-		zap.String(logkey.Kind, "openshiftpipelines.org.TektonPruner"),
+		zap.String(logkey.Kind, "pruner.tekton.dev.TektonPruner"),
 	)
 
 	impl := controller.NewContext(ctx, rec, controller.ControllerOptions{WorkQueueName: ctrTypeName, Logger: logger})

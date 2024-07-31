@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2024 The Tekton Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ package fake
 
 import (
 	clientset "github.com/openshift-pipelines/tektoncd-pruner/pkg/client/clientset/versioned"
-	openshiftpipelinesv1alpha1 "github.com/openshift-pipelines/tektoncd-pruner/pkg/client/clientset/versioned/typed/tektonpruner/v1alpha1"
-	fakeopenshiftpipelinesv1alpha1 "github.com/openshift-pipelines/tektoncd-pruner/pkg/client/clientset/versioned/typed/tektonpruner/v1alpha1/fake"
+	prunerv1alpha1 "github.com/openshift-pipelines/tektoncd-pruner/pkg/client/clientset/versioned/typed/tektonpruner/v1alpha1"
+	fakeprunerv1alpha1 "github.com/openshift-pipelines/tektoncd-pruner/pkg/client/clientset/versioned/typed/tektonpruner/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -79,7 +79,7 @@ var (
 	_ testing.FakeClient  = &Clientset{}
 )
 
-// OpenshiftpipelinesV1alpha1 retrieves the OpenshiftpipelinesV1alpha1Client
-func (c *Clientset) OpenshiftpipelinesV1alpha1() openshiftpipelinesv1alpha1.OpenshiftpipelinesV1alpha1Interface {
-	return &fakeopenshiftpipelinesv1alpha1.FakeOpenshiftpipelinesV1alpha1{Fake: &c.Fake}
+// PrunerV1alpha1 retrieves the PrunerV1alpha1Client
+func (c *Clientset) PrunerV1alpha1() prunerv1alpha1.PrunerV1alpha1Interface {
+	return &fakeprunerv1alpha1.FakePrunerV1alpha1{Fake: &c.Fake}
 }

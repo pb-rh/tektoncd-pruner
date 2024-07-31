@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2024 The Tekton Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,17 +24,17 @@ import (
 	testing "k8s.io/client-go/testing"
 )
 
-type FakeOpenshiftpipelinesV1alpha1 struct {
+type FakePrunerV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeOpenshiftpipelinesV1alpha1) TektonPruners(namespace string) v1alpha1.TektonPrunerInterface {
+func (c *FakePrunerV1alpha1) TektonPruners(namespace string) v1alpha1.TektonPrunerInterface {
 	return &FakeTektonPruners{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeOpenshiftpipelinesV1alpha1) RESTClient() rest.Interface {
+func (c *FakePrunerV1alpha1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }

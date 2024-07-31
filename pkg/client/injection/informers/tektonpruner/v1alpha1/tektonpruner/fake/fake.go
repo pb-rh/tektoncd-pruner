@@ -35,6 +35,6 @@ func init() {
 
 func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 	f := fake.Get(ctx)
-	inf := f.Openshiftpipelines().V1alpha1().TektonPruners()
+	inf := f.Pruner().V1alpha1().TektonPruners()
 	return context.WithValue(ctx, tektonpruner.Key{}, inf), inf.Informer()
 }

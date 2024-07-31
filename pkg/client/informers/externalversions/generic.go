@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2024 The Tekton Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -52,9 +52,9 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=openshiftpipelines.org, Version=v1alpha1
+	// Group=pruner.tekton.dev, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("tektonpruners"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Openshiftpipelines().V1alpha1().TektonPruners().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Pruner().V1alpha1().TektonPruners().Informer()}, nil
 
 	}
 

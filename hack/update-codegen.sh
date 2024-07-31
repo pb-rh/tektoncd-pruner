@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2019 The Knative Authors
+# Copyright 2019 The Tekton Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,44 +18,46 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-source $(dirname $0)/../vendor/knative.dev/hack/codegen-library.sh
-export PATH="$GOBIN:$PATH"
+source $(git rev-parse --show-toplevel)/hack/setup-temporary-gopath.sh
+shim_gopath
+trap shim_gopath_clean EXIT
+
+source $(git rev-parse --show-toplevel)/vendor/github.com/tektoncd/plumbing/scripts/library.sh
 
 PREFIX=${GOBIN:-${GOPATH}/bin}
 
-function run_yq() {
-	go_run github.com/mikefarah/yq/v4@v4.23.1 "$@"
-}
+echo "Update deepcopy,client,informer,lister"
 
-echo "=== Update Codegen for ${MODULE_NAME}"
-
-group "Kubernetes Codegen"
-
+OLDGOFLAGS="${GOFLAGS:-}"
+GOFLAGS="-mod=vendor"
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
 #                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
-bash ${CODEGEN_PKG}/kube_codegen.sh "deepcopy,client,informer,lister" \
+# This generates deepcopy,client,informer and lister for the resource package (v1alpha1)
+# This is separate from the pipeline package as resource are staying in v1alpha1 and they
+# need to be separated (at least in terms of go package) from the pipeline's packages to
+# not having dependency cycle.
+# This generates deepcopy,client,informer and lister for the pipeline package (v1alpha1 and v1beta1)
+bash ${REPO_ROOT_DIR}/hack/generate-groups.sh "deepcopy,client,informer,lister" \
   github.com/openshift-pipelines/tektoncd-pruner/pkg/client github.com/openshift-pipelines/tektoncd-pruner/pkg/apis \
   "tektonpruner:v1alpha1" \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
-group "Knative Codegen"
+echo "Update deepcopy-gen"
+${PREFIX}/deepcopy-gen \
+  -O zz_generated.deepcopy \
+  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
+  -i github.com/openshift-pipelines/tektoncd-pruner/pkg/apis/tektonpruner/v1alpha
 
+echo "Update injection"
 # Knative Injection
-bash ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
-  github.com/openshift-pipelines/tektoncd-pruner/pkg/client \
-  github.com/openshift-pipelines/tektoncd-pruner/pkg/apis \
+# This generates the knative injection packages for the resource package (v1alpha1).
+bash ${REPO_ROOT_DIR}/hack/generate-knative.sh "injection" \
+  github.com/openshift-pipelines/tektoncd-pruner/pkg/client github.com/openshift-pipelines/tektoncd-pruner/pkg/apis \
   "tektonpruner:v1alpha1" \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
-
-group "Update CRD Schema"
-
-go run $(dirname $0)/../cmd/schema/ dump TektonPruner \
-  | run_yq eval-all --header-preprocess=false --inplace 'select(fileIndex == 0).spec.versions[0].schema.openAPIV3Schema = select(fileIndex == 1) | select(fileIndex == 0)' \
-  $(dirname $0)/../config/300-tektonpruner-crd.yaml -
-
-group "Update deps post-codegen"
+GOFLAGS="${OLDGOFLAGS}"
 
 # Make sure our dependencies are up-to-date
 ${REPO_ROOT_DIR}/hack/update-deps.sh

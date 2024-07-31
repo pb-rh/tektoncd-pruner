@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2024 The Tekton Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ type tektonPruners struct {
 }
 
 // newTektonPruners returns a TektonPruners
-func newTektonPruners(c *OpenshiftpipelinesV1alpha1Client, namespace string) *tektonPruners {
+func newTektonPruners(c *PrunerV1alpha1Client, namespace string) *tektonPruners {
 	return &tektonPruners{
 		client: c.RESTClient(),
 		ns:     namespace,

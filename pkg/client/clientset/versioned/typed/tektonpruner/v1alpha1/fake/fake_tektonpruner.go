@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2024 The Tekton Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import (
 
 // FakeTektonPruners implements TektonPrunerInterface
 type FakeTektonPruners struct {
-	Fake *FakeOpenshiftpipelinesV1alpha1
+	Fake *FakePrunerV1alpha1
 	ns   string
 }
 

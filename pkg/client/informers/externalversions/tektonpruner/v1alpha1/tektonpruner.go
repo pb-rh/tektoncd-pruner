@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2024 The Tekton Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -62,13 +62,13 @@ func NewFilteredTektonPrunerInformer(client versioned.Interface, namespace strin
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.OpenshiftpipelinesV1alpha1().TektonPruners(namespace).List(context.TODO(), options)
+				return client.PrunerV1alpha1().TektonPruners(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.OpenshiftpipelinesV1alpha1().TektonPruners(namespace).Watch(context.TODO(), options)
+				return client.PrunerV1alpha1().TektonPruners(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&tektonprunerv1alpha1.TektonPruner{},
