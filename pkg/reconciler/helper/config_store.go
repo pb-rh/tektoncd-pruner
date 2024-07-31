@@ -71,6 +71,8 @@ func (ps *_prunerStore) LoadOnStartup(ctx context.Context, client kubernetes.Int
 	ps.mutex.Lock()
 	defer ps.mutex.Unlock()
 
+	// logger := logging.FromContext(ctx)
+
 	defaultTTL := DefaultTTLSeconds
 	defaultSpec := &PrunerSpec{
 		TTLSecondsAfterFinished: &defaultTTL,

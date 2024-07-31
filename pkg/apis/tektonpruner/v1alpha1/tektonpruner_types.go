@@ -28,18 +28,26 @@ const (
 
 // TektonPrunerSpec defines the desired state of TektonPruner
 type TektonPrunerSpec struct {
-	TTLSecondsAfterFinished *int32         `json:"ttlSecondsAfterFinished"`
-	SuccessfulHistoryLimit  *int32         `json:"successfulHistoryLimit"`
-	FailedHistoryLimit      *int32         `json:"failedHistoryLimit"`
-	Pipelines               []ResourceSpec `json:"pipelines,omitempty"`
-	Tasks                   []ResourceSpec `json:"tasks,omitempty"`
+	// +optional
+	TTLSecondsAfterFinished *int32 `json:"ttlSecondsAfterFinished,omitempty"`
+	// +optional
+	SuccessfulHistoryLimit *int32 `json:"successfulHistoryLimit,omitempty"`
+	// +optional
+	FailedHistoryLimit *int32 `json:"failedHistoryLimit,omitempty"`
+	// +optional
+	Pipelines []ResourceSpec `json:"pipelines,omitempty"`
+	// +optional
+	Tasks []ResourceSpec `json:"tasks,omitempty"`
 }
 
 type ResourceSpec struct {
-	Name                    string `json:"name"`
-	TTLSecondsAfterFinished *int32 `json:"ttlSecondsAfterFinished"`
-	SuccessfulHistoryLimit  *int32 `json:"successfulHistoryLimit"`
-	FailedHistoryLimit      *int32 `json:"failedHistoryLimit"`
+	Name string `json:"name"`
+	// +optional
+	TTLSecondsAfterFinished *int32 `json:"ttlSecondsAfterFinished,omitempty"`
+	// +optional
+	SuccessfulHistoryLimit *int32 `json:"successfulHistoryLimit,omitempty"`
+	// +optional
+	FailedHistoryLimit *int32 `json:"failedHistoryLimit,omitempty"`
 }
 
 // TektonPrunerStatus defines the observed state of TektonPruner

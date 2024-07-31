@@ -46,7 +46,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	}
 
 	ctrlOptions := controller.Options{
-		FinalizerName: "pruner_ttl_controller",
+		FinalizerName: "pruner.tekton.dev/ttl",
 	}
 
 	impl := pipelinerunreconciler.NewImpl(ctx, r, func(impl *controller.Impl) controller.Options { return ctrlOptions })

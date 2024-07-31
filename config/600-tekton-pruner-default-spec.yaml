@@ -29,6 +29,6 @@ data:
         - name: foo
           ttlSecondsAfterFinished: 120 # 2 minutes
   global-config: |
-    ttlSecondsAfterFinished: 600 # 10 minutes
+    ttlSecondsAfterFinished: 540 # 9 minutes
     successfulHistoryLimit: 3
     failedHistoryLimit: 1

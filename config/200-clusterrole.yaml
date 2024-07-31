@@ -11,6 +11,8 @@ rules:
       - "pruner.tekton.dev"
     resources:
       - "tektonpruners"
+      - "tektonpruners/status"
+      - "tektonpruners/finalizers"
     verbs:
       - "get"
       - "list"
@@ -19,6 +21,16 @@ rules:
       - "delete"
       - "patch"
       - "watch"
+
+  # Write permissions to publish events.
+  - apiGroups:
+      - ""
+    resources:
+      - "events"
+    verbs:
+      - "create"
+      - "update"
+      - "patch"
 
   # allows to manage taskruns and pipelineruns
   - apiGroups:

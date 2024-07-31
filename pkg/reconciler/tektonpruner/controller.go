@@ -2,6 +2,7 @@ package tektonpruner
 
 import (
 	"context"
+	"os"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -33,14 +34,19 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		// The client will be needed to create/delete Pods via the API.
 		kubeclient: kubeclient.Get(ctx),
 	}
-	impl := tektonprunerreconciler.NewImpl(ctx, r)
+
+	ctrlOptions := controller.Options{
+		FinalizerName: "pruner.tekton.dev/tektonpruner",
+	}
+
+	impl := tektonprunerreconciler.NewImpl(ctx, r, func(impl *controller.Impl) controller.Options { return ctrlOptions })
 
 	// Listen for events on the main resource and enqueue themselves.
 	tektonPrunerInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	// load pruner store
 	// TODO: update the namespace dynamically
-	helper.PrunerConfigStore.LoadOnStartup(ctx, r.kubeclient, "test")
+	helper.PrunerConfigStore.LoadOnStartup(ctx, r.kubeclient, os.Getenv("SYSTEM_NAMESPACE"))
 
 	return impl
 }

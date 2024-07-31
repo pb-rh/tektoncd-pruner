@@ -10,5 +10,5 @@ const (
 
 	DefaultTTLSeconds    = int32(600) // 60 * 10 = 10 minutes
 	DefaultConfigMapName = "tekton-pruner-default-spec"
-	DefaultConfigKey     = "spec"
+	DefaultConfigKey     = "global-config"
 )
