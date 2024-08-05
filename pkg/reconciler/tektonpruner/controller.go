@@ -2,8 +2,8 @@ package tektonpruner
 
 import (
 	"context"
-	"os"
 
+	"go.uber.org/zap"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -12,6 +12,7 @@ import (
 	tektonprunerreconciler "github.com/openshift-pipelines/tektoncd-pruner/pkg/client/injection/reconciler/tektonpruner/v1alpha1/tektonpruner"
 	"github.com/openshift-pipelines/tektoncd-pruner/pkg/reconciler/helper"
 	"github.com/openshift-pipelines/tektoncd-pruner/pkg/version"
+	corev1 "k8s.io/api/core/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 )
 
@@ -35,18 +36,26 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		kubeclient: kubeclient.Get(ctx),
 	}
 
-	ctrlOptions := controller.Options{
-		FinalizerName: "pruner.tekton.dev/tektonpruner",
-	}
-
-	impl := tektonprunerreconciler.NewImpl(ctx, r, func(impl *controller.Impl) controller.Options { return ctrlOptions })
+	impl := tektonprunerreconciler.NewImpl(ctx, r)
 
 	// Listen for events on the main resource and enqueue themselves.
 	tektonPrunerInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
-	// load pruner store
-	// TODO: update the namespace dynamically
-	helper.PrunerConfigStore.LoadOnStartup(ctx, r.kubeclient, os.Getenv("SYSTEM_NAMESPACE"))
+	// call
+	cmw.Watch(helper.PrunerConfigMapName, onConfigChange(ctx))
 
 	return impl
+}
+
+func onConfigChange(ctx context.Context) configmap.Observer {
+	logger := logging.FromContext(ctx)
+	return func(configMap *corev1.ConfigMap) {
+		logger.Debugw("updating pruner global config map with pruner config store",
+			"newGlobalConfig", configMap.Data[helper.PrunerGlobalConfigKey],
+		)
+		err := helper.PrunerConfigStore.LoadGlobalConfig(configMap)
+		if err != nil {
+			logger.Error("error on getting pruner global config", zap.Error(err))
+		}
+	}
 }

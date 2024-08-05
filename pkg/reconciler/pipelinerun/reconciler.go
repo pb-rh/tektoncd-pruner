@@ -2,10 +2,11 @@ package pipelinerun
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/openshift-pipelines/tektoncd-pruner/pkg/reconciler/helper"
-	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	pipelineversioned "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	pipelinerunreconciler "github.com/tektoncd/pipeline/pkg/client/injection/reconciler/pipeline/v1/pipelinerun"
 	"go.uber.org/zap"
@@ -13,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
 )
@@ -20,61 +22,62 @@ import (
 // Reconciler
 type Reconciler struct {
 	kubeclient     kubernetes.Interface
-	ttlQueue       *helper.TTLQueue
+	ttlHandler     *helper.TTLHandler
 	historyLimiter *helper.HistoryLimiter
 }
 
 // Check that our Reconciler implements Interface
 var _ pipelinerunreconciler.Interface = (*Reconciler)(nil)
 
-func (r *Reconciler) FinalizeKind(ctx context.Context, pr *v1.PipelineRun) reconciler.Event {
-	r.ttlQueue.RemoveFromQueue(ctx, pr.GetNamespace(), pr.GetName())
-	return nil
-}
-
 // ReconcileKind implements Interface.ReconcileKind.
-func (r *Reconciler) ReconcileKind(ctx context.Context, pr *v1.PipelineRun) reconciler.Event {
-	// This logger has all the context necessary to identify which resource is being reconciled.
+func (r *Reconciler) ReconcileKind(ctx context.Context, pr *pipelinev1.PipelineRun) reconciler.Event {
 	logger := logging.FromContext(ctx)
-
-	logger.Infow("received an PipelineRun event",
-		"Name", pr.Name,
-		"Namespace", pr.Namespace,
+	logger.Debugw("received a PipelineRun event",
+		"namespace", pr.Namespace, "name", pr.Name,
 	)
 
-	// perform ttl
-	err := r.ttlQueue.ProcessEvent(ctx, pr)
+	// execute the history limiter earlier than the ttl handler
+
+	// execute history limit action
+	err := r.historyLimiter.ProcessEvent(ctx, pr)
 	if err != nil {
-		logger.Errorw("error on processing ttl for a pipelineRun",
-			"Namespace", pr.Namespace,
-			"Name", pr.Name,
+		logger.Errorw("error on processing history limiting for a PipelineRun",
+			"namespace", pr.Namespace, "name", pr.Name,
 			zap.Error(err),
 		)
+		return err
 	}
 
-	// perform history limit
-	err = r.historyLimiter.ProcessEvent(ctx, pr)
+	// execute ttl handler
+	err = r.ttlHandler.ProcessEvent(ctx, pr)
 	if err != nil {
-		logger.Errorw("error on processing history limiting for a pipelineRun",
-			"Namespace", pr.Namespace,
-			"Name", pr.Name,
-			zap.Error(err),
-		)
+		isRequeueKey, _ := controller.IsRequeueKey(err)
+		// the error is not a requeue error, print the error
+		if !isRequeueKey {
+			data, _ := json.Marshal(pr)
+			logger.Errorw("error on processing ttl for a PipelineRun",
+				"namespace", pr.Namespace, "name", pr.Name,
+				"resource", string(data),
+				zap.Error(err),
+			)
+		}
+		return err
 	}
-	return err
+
+	return nil
 }
 
 type PipelineRunFuncs struct {
 	client pipelineversioned.Interface
 }
 
-func (plf *PipelineRunFuncs) Type() string {
-	return "PipelineRun"
+func (prf *PipelineRunFuncs) Type() string {
+	return helper.KindPipelineRun
 }
 
-func (plf *PipelineRunFuncs) List(ctx context.Context, namespace, label string) ([]metav1.Object, error) {
+func (prf *PipelineRunFuncs) List(ctx context.Context, namespace, label string) ([]metav1.Object, error) {
 	// TODO: should we have to implement pagination support?
-	prsList, err := plf.client.TektonV1().PipelineRuns(namespace).List(ctx, metav1.ListOptions{LabelSelector: label})
+	prsList, err := prf.client.TektonV1().PipelineRuns(namespace).List(ctx, metav1.ListOptions{LabelSelector: label})
 	if err != nil {
 		return nil, err
 	}
@@ -86,27 +89,28 @@ func (plf *PipelineRunFuncs) List(ctx context.Context, namespace, label string) 
 	return prs, nil
 }
 
-func (plf *PipelineRunFuncs) Get(ctx context.Context, namespace, name string) (metav1.Object, error) {
-	return plf.client.TektonV1().PipelineRuns(namespace).Get(ctx, name, metav1.GetOptions{})
+func (prf *PipelineRunFuncs) Get(ctx context.Context, namespace, name string) (metav1.Object, error) {
+	return prf.client.TektonV1().PipelineRuns(namespace).Get(ctx, name, metav1.GetOptions{})
 }
 
-func (plf *PipelineRunFuncs) Delete(ctx context.Context, namespace, name string) error {
-	return plf.client.TektonV1().PipelineRuns(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+func (prf *PipelineRunFuncs) Delete(ctx context.Context, namespace, name string) error {
+	return prf.client.TektonV1().PipelineRuns(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 }
 
-func (plf *PipelineRunFuncs) Update(ctx context.Context, resource metav1.Object) error {
-	pr, ok := resource.(*v1.PipelineRun)
+func (prf *PipelineRunFuncs) Update(ctx context.Context, resource metav1.Object) error {
+	pr, ok := resource.(*pipelinev1.PipelineRun)
 	if !ok {
 		return fmt.Errorf("invalid type received. Namespace:%s, Name:%s", resource.GetNamespace(), resource.GetName())
 	}
-	_, err := plf.client.TektonV1().PipelineRuns(resource.GetNamespace()).Update(ctx, pr, metav1.UpdateOptions{})
+	_, err := prf.client.TektonV1().PipelineRuns(resource.GetNamespace()).Update(ctx, pr, metav1.UpdateOptions{})
 	return err
 }
 
-func (plf *PipelineRunFuncs) GetCompletionTime(resource metav1.Object) (metav1.Time, error) {
-	pr, ok := resource.(*v1.PipelineRun)
+func (prf *PipelineRunFuncs) GetCompletionTime(resource metav1.Object) (metav1.Time, error) {
+	pr, ok := resource.(*pipelinev1.PipelineRun)
 	if !ok {
-		return metav1.Time{}, fmt.Errorf("resource type error, this is not a PipelineRun resource. Namespace:%s, Name:%s", resource.GetNamespace(), resource.GetName())
+		return metav1.Time{}, fmt.Errorf("resource type error, this is not a PipelineRun resource. namespace:%s, name:%s, type:%T",
+			resource.GetNamespace(), resource.GetName(), resource)
 	}
 	if pr.Status.CompletionTime != nil {
 		return *pr.Status.CompletionTime, nil
@@ -115,17 +119,17 @@ func (plf *PipelineRunFuncs) GetCompletionTime(resource metav1.Object) (metav1.T
 		if c.Type == apis.ConditionSucceeded && c.Status != corev1.ConditionUnknown {
 			finishAt := c.LastTransitionTime
 			if finishAt.Inner.IsZero() {
-				return metav1.Time{}, fmt.Errorf("unable to find the time when the resource %s/%s finished", pr.Namespace, pr.Name)
+				return metav1.Time{}, fmt.Errorf("unable to find the time when the resource '%s/%s' finished", pr.Namespace, pr.Name)
 			}
 			return c.LastTransitionTime.Inner, nil
 		}
 	}
 
 	// This should never happen if the Resource has finished
-	return metav1.Time{}, fmt.Errorf("unable to find the status of the finished Resource %s/%s", pr.Namespace, pr.Name)
+	return metav1.Time{}, fmt.Errorf("unable to find the status of the finished resource: %s/%s", pr.Namespace, pr.Name)
 }
 
-func (plf *PipelineRunFuncs) Ignore(resource metav1.Object) bool {
+func (prf *PipelineRunFuncs) Ignore(resource metav1.Object) bool {
 	// labels and annotations are not populated, lets wait sometime
 	if resource.GetLabels() == nil {
 		if resource.GetAnnotations() == nil || resource.GetAnnotations()[helper.AnnotationTTLSecondsAfterFinished] == "" {
@@ -135,38 +139,35 @@ func (plf *PipelineRunFuncs) Ignore(resource metav1.Object) bool {
 	return false
 }
 
-func (plf *PipelineRunFuncs) GetTTL(resource metav1.Object) *int32 {
-	pipelineName := plf.getPipelineName(resource)
-	return helper.PrunerConfigStore.GetPipelineTTL(resource.GetNamespace(), pipelineName)
-}
-
-func (plf *PipelineRunFuncs) getPipelineName(resource metav1.Object) string {
-	// get the pipeline name
-	labels := resource.GetLabels()
-	if labels == nil {
-		labels = map[string]string{}
-	}
-	pipelineName, ok := labels[helper.LabelPipelineName]
-	if !ok || pipelineName == "" {
-		// if pipeline name not found, use pipelineRun name
-		pipelineName = resource.GetName()
-	}
-	return pipelineName
-}
-
-func (plf *PipelineRunFuncs) IsCompleted(resource metav1.Object) bool {
-	pr, ok := resource.(*v1.PipelineRun)
+func (prf *PipelineRunFuncs) IsCompleted(resource metav1.Object) bool {
+	pr, ok := resource.(*pipelinev1.PipelineRun)
 	if !ok {
 		return false
 	}
+
+	if pr.Status.StartTime == nil {
+		return false
+	}
+
+	if pr.Status.CompletionTime != nil {
+		return true
+	}
+
 	if pr.IsPending() {
 		return false
 	}
+
+	// check the status from conditions
+	condition := pr.Status.GetCondition(apis.ConditionSucceeded)
+	if condition == nil || condition.Status == corev1.ConditionUnknown {
+		return false
+	}
+
 	return true
 }
 
-func (plf *PipelineRunFuncs) IsSuccessful(resource metav1.Object) bool {
-	pr, ok := resource.(*v1.PipelineRun)
+func (prf *PipelineRunFuncs) IsSuccessful(resource metav1.Object) bool {
+	pr, ok := resource.(*pipelinev1.PipelineRun)
 	if !ok {
 		return false
 	}
@@ -180,17 +181,17 @@ func (plf *PipelineRunFuncs) IsSuccessful(resource metav1.Object) bool {
 		return false
 	}
 
-	runReason := v1.PipelineRunReason(condition.Reason)
+	runReason := pipelinev1.PipelineRunReason(condition.Reason)
 
-	if runReason == v1.PipelineRunReasonSuccessful || runReason == v1.PipelineRunReasonCompleted {
+	if runReason == pipelinev1.PipelineRunReasonSuccessful || runReason == pipelinev1.PipelineRunReasonCompleted {
 		return true
 	}
 
 	return false
 }
 
-func (plf *PipelineRunFuncs) IsFailed(resource metav1.Object) bool {
-	pr, ok := resource.(*v1.PipelineRun)
+func (prf *PipelineRunFuncs) IsFailed(resource metav1.Object) bool {
+	pr, ok := resource.(*pipelinev1.PipelineRun)
 	if !ok {
 		return false
 	}
@@ -199,15 +200,21 @@ func (plf *PipelineRunFuncs) IsFailed(resource metav1.Object) bool {
 		return false
 	}
 
-	return !plf.IsSuccessful(resource)
+	return !prf.IsSuccessful(resource)
 }
 
-func (plf *PipelineRunFuncs) GetSuccessHistoryLimitCount(resource metav1.Object) *int32 {
-	pipelineName := plf.getPipelineName(resource)
-	return helper.PrunerConfigStore.GetPipelineSuccessHistoryLimitCount(resource.GetNamespace(), pipelineName)
+func (prf *PipelineRunFuncs) GetDefaultLabelKey() string {
+	return helper.LabelPipelineName
 }
 
-func (plf *PipelineRunFuncs) GetFailedHistoryLimitCount(resource metav1.Object) *int32 {
-	pipelineName := plf.getPipelineName(resource)
-	return helper.PrunerConfigStore.GetPipelineFailedHistoryLimitCount(resource.GetNamespace(), pipelineName)
+func (prf *PipelineRunFuncs) GetTTLSecondsAfterFinished(namespace, pipelineName string) *int32 {
+	return helper.PrunerConfigStore.GetPipelineTTLSecondsAfterFinished(namespace, pipelineName)
+}
+
+func (prf *PipelineRunFuncs) GetSuccessHistoryLimitCount(namespace, name string) *int32 {
+	return helper.PrunerConfigStore.GetPipelineSuccessHistoryLimitCount(namespace, name)
+}
+
+func (prf *PipelineRunFuncs) GetFailedHistoryLimitCount(namespace, name string) *int32 {
+	return helper.PrunerConfigStore.GetPipelineFailedHistoryLimitCount(namespace, name)
 }

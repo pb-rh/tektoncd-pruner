@@ -46,7 +46,7 @@ data:
         }
       }
 
-    # Log level overrides
-    # Changes are be picked up immediately.
-    loglevel.controller: "info"
-    loglevel.webhook: "info"
+  # Log level overrides
+  # Changes are be picked up immediately.
+  loglevel.tekton-pruner-controller: "warn"
+  loglevel.tekton-pruner-webhook: "warn"
