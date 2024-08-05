@@ -3,11 +3,10 @@ package tektonpruner
 import (
 	"context"
 
-	"k8s.io/client-go/kubernetes"
-
 	tektonprunerv1alpha1 "github.com/openshift-pipelines/tektoncd-pruner/pkg/apis/tektonpruner/v1alpha1"
 	tektonprunerreconciler "github.com/openshift-pipelines/tektoncd-pruner/pkg/client/injection/reconciler/tektonpruner/v1alpha1/tektonpruner"
 	"github.com/openshift-pipelines/tektoncd-pruner/pkg/reconciler/helper"
+	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
 )
@@ -39,6 +38,9 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, tknPr *tektonprunerv1alp
 
 	// update spec on the common store
 	helper.PrunerConfigStore.UpdateNamespacedSpec(tknPr)
+
+	// mark reconciliation completed and this config is ready to use
+	tknPr.Status.MarkReady()
 
 	return nil
 }

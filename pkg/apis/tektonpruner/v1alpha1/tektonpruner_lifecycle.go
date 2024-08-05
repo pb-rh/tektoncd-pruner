@@ -34,11 +34,11 @@ func (tp *TektonPruner) GetConditionSet() apis.ConditionSet {
 }
 
 // InitializeConditions sets the initial values to the conditions.
-func (ds *TektonPrunerStatus) InitializeConditions() {
-	tektonPrunerCondSet.Manage(ds).InitializeConditions()
+func (tps *TektonPrunerStatus) InitializeConditions() {
+	tektonPrunerCondSet.Manage(tps).InitializeConditions()
 }
 
 // MarkPodsReady makes the SimpleDeployment be ready.
-func (ds *TektonPrunerStatus) MarkPodsReady() {
-	tektonPrunerCondSet.Manage(ds).MarkTrue(TektonPrunerConditionReady)
+func (tps *TektonPrunerStatus) MarkReady() {
+	tektonPrunerCondSet.Manage(tps).MarkTrue(TektonPrunerConditionReady)
 }
