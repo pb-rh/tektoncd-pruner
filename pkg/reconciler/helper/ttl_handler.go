@@ -179,7 +179,12 @@ func (th *TTLHandler) removeResource(ctx context.Context, resource metav1.Object
 	logger.Debugw("cleaning up a resource",
 		"resource", th.resourceFn.Type(), "namespace", resource.GetNamespace(), "name", resource.GetName(),
 	)
-	if err := th.resourceFn.Delete(ctx, resource.GetNamespace(), resource.GetName()); err != nil {
+	err = th.resourceFn.Delete(ctx, resource.GetNamespace(), resource.GetName())
+	if err != nil {
+		// ignore the error, if the resource is not found
+		if errors.IsNotFound(err) {
+			return nil
+		}
 		logger.Error("error on removing a resource",
 			"resource", th.resourceFn.Type(), "namespace", resource.GetNamespace(), "name", resource.GetName(),
 			zap.Error(err),

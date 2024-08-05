@@ -240,6 +240,10 @@ func (hl *HistoryLimiter) doResourceCleanup(ctx context.Context, resource metav1
 		)
 		err := hl.resourceFn.Delete(ctx, _res.GetNamespace(), _res.GetName())
 		if err != nil {
+			// ignore the error, if the resource is not found
+			if errors.IsNotFound(err) {
+				return nil
+			}
 			logger.Errorw("error on removing a resource",
 				"resource", hl.resourceFn.Type(), "namespace", _res.GetNamespace(), "name", _res.GetName(),
 				zap.Error(err),
