@@ -14,7 +14,7 @@ import (
 	"knative.dev/pkg/ptr"
 )
 
-type HistoryLimitResourceFuncs interface {
+type HistoryLimiterResourceFuncs interface {
 	Type() string
 	Get(ctx context.Context, namespace, name string) (metav1.Object, error)
 	Update(ctx context.Context, resource metav1.Object) error
@@ -29,10 +29,10 @@ type HistoryLimitResourceFuncs interface {
 }
 
 type HistoryLimiter struct {
-	resourceFn HistoryLimitResourceFuncs
+	resourceFn HistoryLimiterResourceFuncs
 }
 
-func NewHistoryLimiter(resourceFn HistoryLimitResourceFuncs) (*HistoryLimiter, error) {
+func NewHistoryLimiter(resourceFn HistoryLimiterResourceFuncs) (*HistoryLimiter, error) {
 	hl := &HistoryLimiter{
 		resourceFn: resourceFn,
 	}
