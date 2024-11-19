@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	tektonprunerv1alpha1 "github.com/openshift-pipelines/tektoncd-pruner/pkg/apis/tektonpruner/v1alpha1"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,6 +25,7 @@ type TTLResourceFuncs interface {
 	Ignore(resource metav1.Object) bool
 	GetTTLSecondsAfterFinished(namespace, name string) *int32
 	GetDefaultLabelKey() string
+	GetEnforcedConfigLevel(namespace, name string) tektonprunerv1alpha1.EnforcedConfigLevel
 }
 
 type TTLHandler struct {
@@ -92,10 +94,18 @@ func (th *TTLHandler) updateAnnotationTTLSeconds(ctx context.Context, resource m
 	if annotations[AnnotationTTLSecondsAfterFinished] == "" {
 		needsUpdate = true
 	}
+
+	// get resource name, with user defined label key, if not available, go with default label key
+	labelKey := getResourceNameLabelKey(resource, th.resourceFn.GetDefaultLabelKey())
+	resourceName := getResourceName(resource, labelKey)
+
+	// if the "enforceConfigLevel" is not resource level, do not consider ttl from the resource annotation
+	// take it from namespace config or global config
+	if th.resourceFn.GetEnforcedConfigLevel(resource.GetNamespace(), resourceName) != tektonprunerv1alpha1.EnforcedConfigLevelResource {
+		needsUpdate = true
+	}
+
 	if needsUpdate {
-		// get resource name, with user defined label key, if not available, go with default label key
-		labelKey := getResourceNameLabelKey(resource, th.resourceFn.GetDefaultLabelKey())
-		resourceName := getResourceName(resource, labelKey)
 		ttl := th.resourceFn.GetTTLSecondsAfterFinished(resource.GetNamespace(), resourceName)
 		if ttl == nil {
 			logger.Debugw("tll is not defined for this resource, no further action needed",
@@ -104,7 +114,13 @@ func (th *TTLHandler) updateAnnotationTTLSeconds(ctx context.Context, resource m
 			)
 			return nil
 		}
-		annotations[AnnotationTTLSecondsAfterFinished] = strconv.Itoa(int(*ttl))
+		newTTL := strconv.Itoa(int(*ttl))
+		previousTTL := annotations[AnnotationTTLSecondsAfterFinished]
+		if newTTL == previousTTL {
+			// there is no change on the TTL, update action not needed
+			return nil
+		}
+		annotations[AnnotationTTLSecondsAfterFinished] = newTTL
 		resource.SetAnnotations(annotations)
 		logger.Debugw("updating ttl of a resource",
 			"resource", th.resourceFn.Type(), "namespace", resource.GetNamespace(), "name", resource.GetName(), "ttl", ttl,

@@ -23,7 +23,9 @@ var _ tektonprunerreconciler.Interface = (*Reconciler)(nil)
 func (r *Reconciler) FinalizeKindOld(ctx context.Context, tknPr *tektonprunerv1alpha1.TektonPruner) reconciler.Event {
 	// This logger has all the context necessary to identify which resource is being reconciled.
 	logger := logging.FromContext(ctx)
-	logger.Infow("received a delete event", "Name", tknPr.Name, "Namespace", tknPr.Namespace, "deletionTimestamp", tknPr.GetDeletionTimestamp())
+	logger.Infow("received a delete event",
+		"namespace", tknPr.Namespace, "name", tknPr.Name, "deletionTimestamp", tknPr.GetDeletionTimestamp(),
+	)
 
 	// update spec on the common store
 	helper.PrunerConfigStore.DeleteNamespacedSpec(tknPr.Namespace)
@@ -34,7 +36,9 @@ func (r *Reconciler) FinalizeKindOld(ctx context.Context, tknPr *tektonprunerv1a
 func (r *Reconciler) ReconcileKind(ctx context.Context, tknPr *tektonprunerv1alpha1.TektonPruner) reconciler.Event {
 	// This logger has all the context necessary to identify which resource is being reconciled.
 	logger := logging.FromContext(ctx)
-	logger.Debugw("received an event", "Name", tknPr.Name, "Namespace", tknPr.Namespace)
+	logger.Debugw("received an event",
+		"namespace", tknPr.Namespace, "name", tknPr.Name,
+	)
 
 	// update spec on the common store
 	helper.PrunerConfigStore.UpdateNamespacedSpec(tknPr)
