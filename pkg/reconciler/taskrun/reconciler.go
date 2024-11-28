@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 
+	tektonprunerv1alpha1 "github.com/openshift-pipelines/tektoncd-pruner/pkg/apis/tektonpruner/v1alpha1"
 	"github.com/openshift-pipelines/tektoncd-pruner/pkg/reconciler/helper"
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	pipelineversioned "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
@@ -211,4 +212,8 @@ func (trf *TaskRunFuncs) GetSuccessHistoryLimitCount(namespace, name string) *in
 
 func (trf *TaskRunFuncs) GetFailedHistoryLimitCount(namespace, name string) *int32 {
 	return helper.PrunerConfigStore.GetTaskFailedHistoryLimitCount(namespace, name)
+}
+
+func (trf *TaskRunFuncs) GetEnforcedConfigLevel(namespace, name string) tektonprunerv1alpha1.EnforcedConfigLevel {
+	return helper.PrunerConfigStore.GetTaskEnforcedConfigLevel(namespace, name)
 }

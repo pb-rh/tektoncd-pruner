@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	tektonprunerv1alpha1 "github.com/openshift-pipelines/tektoncd-pruner/pkg/apis/tektonpruner/v1alpha1"
 	"github.com/openshift-pipelines/tektoncd-pruner/pkg/reconciler/helper"
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	pipelineversioned "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
@@ -217,4 +218,8 @@ func (prf *PipelineRunFuncs) GetSuccessHistoryLimitCount(namespace, name string)
 
 func (prf *PipelineRunFuncs) GetFailedHistoryLimitCount(namespace, name string) *int32 {
 	return helper.PrunerConfigStore.GetPipelineFailedHistoryLimitCount(namespace, name)
+}
+
+func (prf *PipelineRunFuncs) GetEnforcedConfigLevel(namespace, name string) tektonprunerv1alpha1.EnforcedConfigLevel {
+	return helper.PrunerConfigStore.GetPipelineEnforcedConfigLevel(namespace, name)
 }
