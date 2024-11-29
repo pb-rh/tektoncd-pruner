@@ -24,20 +24,26 @@ const (
 
 // used to hold the config of a specific namespace
 type PrunerResourceSpec struct {
-	TTLSecondsAfterFinished *int32
-	SuccessfulHistoryLimit  *int32
-	FailedHistoryLimit      *int32
-	Pipelines               []tektonprunerv1alpha1.ResourceSpec
-	Tasks                   []tektonprunerv1alpha1.ResourceSpec
+	// EnforcedConfigLevel allowed values: global, namespace, resource (default: resource)
+	EnforcedConfigLevel     *tektonprunerv1alpha1.EnforcedConfigLevel `yaml:"enforcedConfigLevel"`
+	TTLSecondsAfterFinished *int32                                    `yaml:"ttlSecondsAfterFinished"`
+	SuccessfulHistoryLimit  *int32                                    `yaml:"successfulHistoryLimit"`
+	FailedHistoryLimit      *int32                                    `yaml:"failedHistoryLimit"`
+	HistoryLimit            *int32                                    `yaml:"historyLimit"`
+	Pipelines               []tektonprunerv1alpha1.ResourceSpec       `yaml:"pipelines"`
+	Tasks                   []tektonprunerv1alpha1.ResourceSpec       `yaml:"tasks"`
 }
 
 // used to hold the config of namespaces
 // and global config
 type PrunerConfig struct {
-	TTLSecondsAfterFinished *int32
-	SuccessfulHistoryLimit  *int32
-	FailedHistoryLimit      *int32
-	Namespaces              map[string]PrunerResourceSpec
+	// EnforcedConfigLevel allowed values: global, namespace, resource (default: resource)
+	EnforcedConfigLevel     *tektonprunerv1alpha1.EnforcedConfigLevel `yaml:"enforcedConfigLevel"`
+	TTLSecondsAfterFinished *int32                                    `yaml:"ttlSecondsAfterFinished"`
+	SuccessfulHistoryLimit  *int32                                    `yaml:"successfulHistoryLimit"`
+	FailedHistoryLimit      *int32                                    `yaml:"failedHistoryLimit"`
+	HistoryLimit            *int32                                    `yaml:"historyLimit"`
+	Namespaces              map[string]PrunerResourceSpec             `yaml:"namespaces"`
 }
 
 // defines the store structure
@@ -45,7 +51,7 @@ type PrunerConfig struct {
 type prunerConfigStore struct {
 	mutex            sync.RWMutex
 	globalConfig     PrunerConfig
-	namespacedConfig PrunerConfig
+	namespacedConfig map[string]PrunerResourceSpec
 }
 
 var (
@@ -74,8 +80,8 @@ func (ps *prunerConfigStore) LoadGlobalConfig(configMap *corev1.ConfigMap) error
 		ps.globalConfig.Namespaces = map[string]PrunerResourceSpec{}
 	}
 
-	if ps.namespacedConfig.Namespaces == nil {
-		ps.namespacedConfig.Namespaces = map[string]PrunerResourceSpec{}
+	if ps.namespacedConfig == nil {
+		ps.namespacedConfig = map[string]PrunerResourceSpec{}
 	}
 
 	return nil
@@ -93,17 +99,17 @@ func (ps *prunerConfigStore) UpdateNamespacedSpec(prunerCR *tektonprunerv1alpha1
 		Pipelines:               prunerCR.Spec.Pipelines,
 		Tasks:                   prunerCR.Spec.Tasks,
 	}
-	ps.namespacedConfig.Namespaces[namespace] = namespacedSpec
+	ps.namespacedConfig[namespace] = namespacedSpec
 }
 
 func (ps *prunerConfigStore) DeleteNamespacedSpec(namespace string) {
 	ps.mutex.Lock()
 	defer ps.mutex.Unlock()
-	delete(ps.namespacedConfig.Namespaces, namespace)
+	delete(ps.namespacedConfig, namespace)
 }
 
-func getFromPrunerConfig(spec PrunerConfig, namespace, name string, resourceType PrunerResourceType, fieldType PrunerFieldType) *int32 {
-	prunerResourceSpec, found := spec.Namespaces[namespace]
+func getFromPrunerConfigResourceLevel(namespacesSpec map[string]PrunerResourceSpec, namespace, name string, resourceType PrunerResourceType, fieldType PrunerFieldType) *int32 {
+	prunerResourceSpec, found := namespacesSpec[namespace]
 	if !found {
 		return nil
 	}
@@ -135,77 +141,183 @@ func getFromPrunerConfig(spec PrunerConfig, namespace, name string, resourceType
 	return nil
 }
 
-func getResourceFieldData(namespacedSpec, globalSpec PrunerConfig, namespace, name string, resourceType PrunerResourceType, fieldType PrunerFieldType) *int32 {
-	ttl := getFromPrunerConfig(namespacedSpec, namespace, name, resourceType, fieldType)
+func getResourceFieldData(namespacedSpec map[string]PrunerResourceSpec, globalSpec PrunerConfig, namespace, name string, resourceType PrunerResourceType, fieldType PrunerFieldType, enforcedConfigLevel tektonprunerv1alpha1.EnforcedConfigLevel) *int32 {
+	var ttl *int32
 
-	if ttl == nil {
-		ttl = getFromPrunerConfig(globalSpec, namespace, name, resourceType, fieldType)
-	}
+	switch enforcedConfigLevel {
+	case tektonprunerv1alpha1.EnforcedConfigLevelResource:
+		// get from namespaced spec, resource level
+		ttl = getFromPrunerConfigResourceLevel(namespacedSpec, namespace, name, resourceType, fieldType)
 
-	if ttl == nil {
-		spec, found := namespacedSpec.Namespaces[namespace]
-		if found {
-			switch fieldType {
-			case PrunerFieldTypeTTLSecondsAfterFinished:
-				ttl = spec.TTLSecondsAfterFinished
+		fallthrough
 
-			case PrunerFieldTypeSuccessfulHistoryLimit:
-				ttl = spec.SuccessfulHistoryLimit
+	case tektonprunerv1alpha1.EnforcedConfigLevelNamespace:
+		if ttl == nil {
+			// get it from namespace spec, root level
+			spec, found := namespacedSpec[namespace]
+			if found {
+				switch fieldType {
+				case PrunerFieldTypeTTLSecondsAfterFinished:
+					ttl = spec.TTLSecondsAfterFinished
 
-			case PrunerFieldTypeFailedHistoryLimit:
-				ttl = spec.FailedHistoryLimit
+				case PrunerFieldTypeSuccessfulHistoryLimit:
+					ttl = spec.SuccessfulHistoryLimit
+
+				case PrunerFieldTypeFailedHistoryLimit:
+					ttl = spec.FailedHistoryLimit
+				}
 			}
 		}
-	}
+		fallthrough
 
-	if ttl == nil {
-		switch fieldType {
-		case PrunerFieldTypeTTLSecondsAfterFinished:
-			ttl = globalSpec.TTLSecondsAfterFinished
-
-		case PrunerFieldTypeSuccessfulHistoryLimit:
-			ttl = globalSpec.SuccessfulHistoryLimit
-
-		case PrunerFieldTypeFailedHistoryLimit:
-			ttl = globalSpec.FailedHistoryLimit
+	case tektonprunerv1alpha1.EnforcedConfigLevelGlobal:
+		if ttl == nil {
+			// get from global spec, resource level
+			ttl = getFromPrunerConfigResourceLevel(globalSpec.Namespaces, namespace, name, resourceType, fieldType)
 		}
+
+		if ttl == nil {
+			// get it from global spec, namespace root level
+			spec, found := globalSpec.Namespaces[namespace]
+			if found {
+				switch fieldType {
+				case PrunerFieldTypeTTLSecondsAfterFinished:
+					ttl = spec.TTLSecondsAfterFinished
+
+				case PrunerFieldTypeSuccessfulHistoryLimit:
+					ttl = spec.SuccessfulHistoryLimit
+
+				case PrunerFieldTypeFailedHistoryLimit:
+					ttl = spec.FailedHistoryLimit
+				}
+			}
+		}
+
+		if ttl == nil {
+			// get it from global spec, root level
+			switch fieldType {
+			case PrunerFieldTypeTTLSecondsAfterFinished:
+				ttl = globalSpec.TTLSecondsAfterFinished
+
+			case PrunerFieldTypeSuccessfulHistoryLimit:
+				ttl = globalSpec.SuccessfulHistoryLimit
+
+			case PrunerFieldTypeFailedHistoryLimit:
+				ttl = globalSpec.FailedHistoryLimit
+			}
+		}
+
 	}
 
 	return ttl
 }
 
+func (ps *prunerConfigStore) GetEnforcedConfigLevelFromNamespaceSpec(namespacesSpec map[string]PrunerResourceSpec, namespace, name string, resourceType PrunerResourceType) *tektonprunerv1alpha1.EnforcedConfigLevel {
+	var enforcedConfigLevel *tektonprunerv1alpha1.EnforcedConfigLevel
+	var resourceSpecs []tektonprunerv1alpha1.ResourceSpec
+	var namespaceSpec PrunerResourceSpec
+	var found bool
+
+	namespaceSpec, found = ps.globalConfig.Namespaces[namespace]
+	if found {
+		switch resourceType {
+		case PrunerResourceTypePipeline:
+			resourceSpecs = namespaceSpec.Pipelines
+
+		case PrunerResourceTypeTask:
+			resourceSpecs = namespaceSpec.Tasks
+		}
+		for _, resourceSpec := range resourceSpecs {
+			if resourceSpec.Name == name {
+				// if found on resource level
+				enforcedConfigLevel = resourceSpec.EnforcedConfigLevel
+				if enforcedConfigLevel != nil {
+					return enforcedConfigLevel
+				}
+				break
+			}
+		}
+
+		// get it from namespace root level
+		enforcedConfigLevel = namespaceSpec.EnforcedConfigLevel
+		if enforcedConfigLevel != nil {
+			return enforcedConfigLevel
+		}
+	}
+	return nil
+}
+
+func (ps *prunerConfigStore) getEnforcedConfigLevel(namespace, name string, resourceType PrunerResourceType) tektonprunerv1alpha1.EnforcedConfigLevel {
+	var enforcedConfigLevel *tektonprunerv1alpha1.EnforcedConfigLevel
+
+	// get it from global spec (order: resource level, namespace root level)
+	enforcedConfigLevel = ps.GetEnforcedConfigLevelFromNamespaceSpec(ps.globalConfig.Namespaces, namespace, name, resourceType)
+	if enforcedConfigLevel != nil {
+		return *enforcedConfigLevel
+	}
+
+	// get it from global spec, root level
+	enforcedConfigLevel = ps.globalConfig.EnforcedConfigLevel
+	if enforcedConfigLevel != nil {
+		return *enforcedConfigLevel
+	}
+
+	// get it from namespace spec (order: resource level, root level)
+	enforcedConfigLevel = ps.GetEnforcedConfigLevelFromNamespaceSpec(ps.namespacedConfig, namespace, name, resourceType)
+	if enforcedConfigLevel != nil {
+		return *enforcedConfigLevel
+	}
+
+	// default level, if no where specified
+	return tektonprunerv1alpha1.EnforcedConfigLevelResource
+}
+
+func (ps *prunerConfigStore) GetPipelineEnforcedConfigLevel(namespace, name string) tektonprunerv1alpha1.EnforcedConfigLevel {
+	return ps.getEnforcedConfigLevel(namespace, name, PrunerResourceTypePipeline)
+}
+
+func (ps *prunerConfigStore) GetTaskEnforcedConfigLevel(namespace, name string) tektonprunerv1alpha1.EnforcedConfigLevel {
+	return ps.getEnforcedConfigLevel(namespace, name, PrunerResourceTypeTask)
+}
+
 func (ps *prunerConfigStore) GetPipelineTTLSecondsAfterFinished(namespace, name string) *int32 {
 	ps.mutex.Lock()
 	defer ps.mutex.Unlock()
-	return getResourceFieldData(ps.namespacedConfig, ps.globalConfig, namespace, name, PrunerResourceTypePipeline, PrunerFieldTypeTTLSecondsAfterFinished)
+	enforcedConfigLevel := ps.GetPipelineEnforcedConfigLevel(namespace, name)
+	return getResourceFieldData(ps.namespacedConfig, ps.globalConfig, namespace, name, PrunerResourceTypePipeline, PrunerFieldTypeTTLSecondsAfterFinished, enforcedConfigLevel)
 }
 
 func (ps *prunerConfigStore) GetPipelineSuccessHistoryLimitCount(namespace, name string) *int32 {
 	ps.mutex.Lock()
 	defer ps.mutex.Unlock()
-	return getResourceFieldData(ps.namespacedConfig, ps.globalConfig, namespace, name, PrunerResourceTypePipeline, PrunerFieldTypeSuccessfulHistoryLimit)
+	enforcedConfigLevel := ps.GetPipelineEnforcedConfigLevel(namespace, name)
+	return getResourceFieldData(ps.namespacedConfig, ps.globalConfig, namespace, name, PrunerResourceTypePipeline, PrunerFieldTypeSuccessfulHistoryLimit, enforcedConfigLevel)
 }
 
 func (ps *prunerConfigStore) GetPipelineFailedHistoryLimitCount(namespace, name string) *int32 {
 	ps.mutex.Lock()
 	defer ps.mutex.Unlock()
-	return getResourceFieldData(ps.namespacedConfig, ps.globalConfig, namespace, name, PrunerResourceTypePipeline, PrunerFieldTypeFailedHistoryLimit)
+	enforcedConfigLevel := ps.GetPipelineEnforcedConfigLevel(namespace, name)
+	return getResourceFieldData(ps.namespacedConfig, ps.globalConfig, namespace, name, PrunerResourceTypePipeline, PrunerFieldTypeFailedHistoryLimit, enforcedConfigLevel)
 }
 
 func (ps *prunerConfigStore) GetTaskTTLSecondsAfterFinished(namespace, name string) *int32 {
 	ps.mutex.Lock()
 	defer ps.mutex.Unlock()
-	return getResourceFieldData(ps.namespacedConfig, ps.globalConfig, namespace, name, PrunerResourceTypeTask, PrunerFieldTypeTTLSecondsAfterFinished)
+	enforcedConfigLevel := ps.GetTaskEnforcedConfigLevel(namespace, name)
+	return getResourceFieldData(ps.namespacedConfig, ps.globalConfig, namespace, name, PrunerResourceTypeTask, PrunerFieldTypeTTLSecondsAfterFinished, enforcedConfigLevel)
 }
 
 func (ps *prunerConfigStore) GetTaskSuccessHistoryLimitCount(namespace, name string) *int32 {
 	ps.mutex.Lock()
 	defer ps.mutex.Unlock()
-	return getResourceFieldData(ps.namespacedConfig, ps.globalConfig, namespace, name, PrunerResourceTypeTask, PrunerFieldTypeSuccessfulHistoryLimit)
+	enforcedConfigLevel := ps.GetTaskEnforcedConfigLevel(namespace, name)
+	return getResourceFieldData(ps.namespacedConfig, ps.globalConfig, namespace, name, PrunerResourceTypeTask, PrunerFieldTypeSuccessfulHistoryLimit, enforcedConfigLevel)
 }
 
 func (ps *prunerConfigStore) GetTaskFailedHistoryLimitCount(namespace, name string) *int32 {
 	ps.mutex.Lock()
 	defer ps.mutex.Unlock()
-	return getResourceFieldData(ps.namespacedConfig, ps.globalConfig, namespace, name, PrunerResourceTypeTask, PrunerFieldTypeFailedHistoryLimit)
+	enforcedConfigLevel := ps.GetTaskEnforcedConfigLevel(namespace, name)
+	return getResourceFieldData(ps.namespacedConfig, ps.globalConfig, namespace, name, PrunerResourceTypeTask, PrunerFieldTypeFailedHistoryLimit, enforcedConfigLevel)
 }

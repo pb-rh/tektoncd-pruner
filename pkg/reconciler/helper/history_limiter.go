@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	tektonprunerv1alpha1 "github.com/openshift-pipelines/tektoncd-pruner/pkg/apis/tektonpruner/v1alpha1"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,6 +27,7 @@ type HistoryLimiterResourceFuncs interface {
 	IsFailed(resource metav1.Object) bool
 	IsCompleted(resource metav1.Object) bool
 	GetDefaultLabelKey() string
+	GetEnforcedConfigLevel(namespace, name string) tektonprunerv1alpha1.EnforcedConfigLevel
 }
 
 type HistoryLimiter struct {
@@ -159,10 +161,13 @@ func (hl *HistoryLimiter) doResourceCleanup(ctx context.Context, resource metav1
 		return nil
 	}
 
+	enforcedConfigLevel := hl.resourceFn.GetEnforcedConfigLevel(resource.GetNamespace(), resourceName)
 	var historyLimit *int32
 	// check the limit history from the resource annotations
 	annotations := resource.GetAnnotations()
-	if len(annotations) != 0 && annotations[historyLimitAnnotation] != "" {
+	// if the "enforceConfigLevel" is not resource level, do not take limit from resource annotations
+	// take it from namespace config or global config
+	if enforcedConfigLevel == tektonprunerv1alpha1.EnforcedConfigLevelResource && len(annotations) != 0 && annotations[historyLimitAnnotation] != "" {
 		_limit, err := strconv.Atoi(annotations[historyLimitAnnotation])
 		if err != nil {
 			logger.Errorw("error on converting history limit to int",

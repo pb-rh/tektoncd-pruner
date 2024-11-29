@@ -22,18 +22,29 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
+type EnforcedConfigLevel string
+
 const (
 	TektonPrunerConditionReady = apis.ConditionReady
+
+	EnforcedConfigLevelGlobal    EnforcedConfigLevel = "global"
+	EnforcedConfigLevelNamespace EnforcedConfigLevel = "namespace"
+	EnforcedConfigLevelResource  EnforcedConfigLevel = "resource"
 )
 
 // TektonPrunerSpec defines the desired state of TektonPruner
 type TektonPrunerSpec struct {
+	// +optional
+	// allowed values in namespace: namespace, resource (default: resource)
+	EnforcedConfigLevel *EnforcedConfigLevel `json:"enforcedConfigLevel"`
 	// +optional
 	TTLSecondsAfterFinished *int32 `json:"ttlSecondsAfterFinished,omitempty"`
 	// +optional
 	SuccessfulHistoryLimit *int32 `json:"successfulHistoryLimit,omitempty"`
 	// +optional
 	FailedHistoryLimit *int32 `json:"failedHistoryLimit,omitempty"`
+	// +optional
+	HistoryLimit *int32 `json:"historyLimit,omitempty"`
 	// +optional
 	Pipelines []ResourceSpec `json:"pipelines,omitempty"`
 	// +optional
@@ -43,11 +54,16 @@ type TektonPrunerSpec struct {
 type ResourceSpec struct {
 	Name string `json:"name"`
 	// +optional
+	// allowed values in namespace: namespace, resource (default: resource)
+	EnforcedConfigLevel *EnforcedConfigLevel `json:"enforcedConfigLevel"`
+	// +optional
 	TTLSecondsAfterFinished *int32 `json:"ttlSecondsAfterFinished,omitempty"`
 	// +optional
 	SuccessfulHistoryLimit *int32 `json:"successfulHistoryLimit,omitempty"`
 	// +optional
 	FailedHistoryLimit *int32 `json:"failedHistoryLimit,omitempty"`
+	// +optional
+	HistoryLimit *int32 `json:"historyLimit,omitempty"`
 }
 
 // TektonPrunerStatus defines the observed state of TektonPruner
