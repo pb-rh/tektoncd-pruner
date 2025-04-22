@@ -95,3 +95,15 @@ clean_tekton: | ; $(info $(M) deleteing tekton from local cluster …) @ ## Dele
 .PHONY: dev-setup
 dev-setup: # setup kind with local registry for local development
 	@cd ./hack/dev/kind/;./install.sh
+
+#Release
+RELEASE_VERSION=v0.0.0
+RELEASE_DIR ?= /tmp/tektoncd-pruner-${RELEASE_VERSION}
+$(BIN):
+	@mkdir -p $@
+
+
+.PHONY: github-release
+github-release:
+	./hack/release.sh ${RELEASE_VERSION}
+
