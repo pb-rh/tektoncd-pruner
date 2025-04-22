@@ -6,7 +6,7 @@ RELEASE_VERSION="$1"
 
 DOCKER_CMD=${DOCKER_CMD:-docker}
 
-BINARIES="ko gh"
+BINARIES="gh"
 
 info() {
   echo "INFO: $@"
@@ -34,12 +34,13 @@ buildImageAndGenerateReleaseYaml() {
     RELEASE_YAML_FILE=$1
   	info Creating  Release Yaml
   	echo "------------------------------------------"
-    kustomize build config -o  $RELEASE_YAML_FILE || {
-      err 'release build failed'
-      return 1
-    }
-    sed -i '' "s/version: devel/version: \"$RELEASE_VERSION\"/g" $RELEASE_YAML_FILE
 
+    echo "# Generated for Release $RELEASE_VERSION" > $RELEASE_YAML_FILE
+  	for file in config/*.yaml; do
+      cat "$file" >> $RELEASE_YAML_FILE
+    done
+    info "Update Release version to $RELEASE_VERSION in $RELEASE_YAML_FILE"
+    sed -i. "s/version: devel/version: \"$RELEASE_VERSION\"/g" $RELEASE_YAML_FILE
     echo "------------------------------------------"
 }
 
@@ -60,13 +61,9 @@ createNewPreRelease() {
 
   # Ensure the tag is deleted
   EXISTING_TAG=$(gh api repos/$REPO/git/refs/tags/$TAG --jq '.ref' 2>/dev/null || echo "")
-
   echo "EXISTING_TAG: $EXISTING_TAG"
   if [ -n "$EXISTING_TAG" ]; then
-      echo "Existing tag found. Deleting..."
-      gh api --method DELETE "/repos/$REPO/git/refs/tags/$TAG" || echo "⚠️ Failed to delete tag (may not exist)"
-      echo "Tag deleted successfully!"
-
+      gh api --method DELETE "/repos/$REPO/git/refs/tags/$TAG" || echo "Failed to delete tag (may not exist)"
   fi
 
   # Create new release
@@ -106,7 +103,7 @@ main() {
 
   # Ask the release version to build images
   getReleaseVersion
- RELEASE_YAML_FILE=release-${RELEASE_VERSION}.yaml
+  RELEASE_YAML_FILE=release-${RELEASE_VERSION}.yaml
 
   buildImageAndGenerateReleaseYaml $RELEASE_YAML_FILE
   createNewPreRelease $RELEASE_YAML_FILE
