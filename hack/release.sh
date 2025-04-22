@@ -37,6 +37,7 @@ buildImageAndGenerateReleaseYaml() {
 
     echo "# Generated for Release $RELEASE_VERSION" > $RELEASE_YAML_FILE
   	for file in config/*.yaml; do
+  	  echo >> $RELEASE_YAML_FILE
       cat "$file" >> $RELEASE_YAML_FILE
     done
     info "Update Release version to $RELEASE_VERSION in $RELEASE_YAML_FILE"

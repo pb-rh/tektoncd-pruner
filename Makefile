@@ -99,9 +99,6 @@ dev-setup: # setup kind with local registry for local development
 #Release
 RELEASE_VERSION=v0.0.0
 RELEASE_DIR ?= /tmp/tektoncd-pruner-${RELEASE_VERSION}
-$(BIN):
-	@mkdir -p $@
-
 
 .PHONY: github-release
 github-release:
